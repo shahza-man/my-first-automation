@@ -1,78 +1,58 @@
 name: Render Video
 
 on:
+  push:
   workflow_dispatch:
     inputs:
       video_data:
-        description: 'Video data from n8n (JSON)'
+        description: 'Video data JSON'
         required: true
         type: string
 
 jobs:
-  render-video:
+  render:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
-    
-    - name: Set up Python
+      
+    - name: Test setup
+      run: |
+        echo "🧪 Testing GitHub Actions setup..."
+        echo "Repository: ${{ github.repository }}"
+        echo "Event: ${{ github.event_name }}"
+        
+    - name: Set up Python (only for API calls)
+      if: github.event_name == 'workflow_dispatch'
       uses: actions/setup-python@v4
       with:
-        python-version: '3.11'
-    
-    - name: Install system dependencies
+        python-version: '3.9'
+        
+    - name: Install system dependencies (only for API calls)
+      if: github.event_name == 'workflow_dispatch'
       run: |
         sudo apt-get update
         sudo apt-get install -y ffmpeg
-    
-    - name: Install Python dependencies
+        
+    - name: Install Python dependencies (only for API calls)
+      if: github.event_name == 'workflow_dispatch'
       run: |
         pip install -r requirements.txt
-    
-    - name: Save video data
-      run: |
-        echo '${{ github.event.inputs.video_data }}' > video_data.json
-        echo "📊 Video data saved"
-        ls -la video_data.json
-    
-    - name: Debug video data
-      run: |
-        echo "🔍 Checking video data structure..."
-        python -c "
-        import json
-        with open('video_data.json', 'r') as f:
-            data = json.load(f)
-        print(f'Title: {data.get(\"title\", \"Unknown\")}')
-        print(f'Images: {len(data.get(\"images\", []))}')
-        print(f'Audio data length: {len(data.get(\"audio\", \"\"))}')
-        print(f'Duration: {data.get(\"duration\", \"Unknown\")}')
-        "
-    
-    - name: Create video
-      run: |
-        echo "🎬 Starting video creation..."
-        python render_video.py
-    
-    - name: List output files
-      run: |
-        echo "📁 Generated files:"
-        ls -la output/
-        if [ -f output/*.mp4 ]; then
-          echo "✅ Video file created successfully!"
-          ls -lh output/*.mp4
-        else
-          echo "❌ No video file found"
-        fi
-    
-    - name: Upload video artifact
-      uses: actions/upload-artifact@v4
+        
+    - name: Create video data file (only for API calls)
+      if: github.event_name == 'workflow_dispatch'
+      run: echo '${{ github.event.inputs.video_data }}' > video_data.json
+      
+    - name: Render video (only for API calls)
+      if: github.event_name == 'workflow_dispatch'
+      run: python render_video.py
+      
+    - name: Upload video artifact (only for API calls)
+      if: github.event_name == 'workflow_dispatch'
+      uses: actions/upload-artifact@v3
       with:
-        name: stoic-video
+        name: rendered-video
         path: output/
         retention-days: 7
-    
-    - name: Success notification
-      run: |
-        echo "🎉 Video rendering completed!"
-        echo "📥 Download your video from the Artifacts section"
